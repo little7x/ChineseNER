@@ -1,0 +1,18 @@
+# Eclipse and IDEA
+.classpath
+.project
+*.iml
+.settings/
+.idea/
+target/
+output/
+test-output/
+out/
+
+# Java
+*.class
+*.jar
+
+# Python
+*.pyc
+*.pyo

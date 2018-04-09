@@ -44,8 +44,8 @@ class Model(object):
         self.dropout = tf.placeholder(dtype=tf.float32,
                                       name="Dropout")
 
-        used = tf.sign(tf.abs(self.char_inputs))
-        length = tf.reduce_sum(used, reduction_indices=1)
+        used = tf.sign(tf.abs(self.char_inputs))  # 1 if not padding characters
+        length = tf.reduce_sum(used, reduction_indices=1)  # A [batch_size] vector of true sequence lengths
         self.lengths = tf.cast(length, tf.int32)
         self.batch_size = tf.shape(self.char_inputs)[0]
         self.num_steps = tf.shape(self.char_inputs)[-1]
@@ -77,9 +77,9 @@ class Model(object):
                 raise KeyError
 
             # apply grad clip to avoid gradient explosion
-            grads_vars = self.opt.compute_gradients(self.loss)
+            grads_vars = self.opt.compute_gradients(self.loss)  # list of (gradient, variable) pairs
             capped_grads_vars = [[tf.clip_by_value(g, -self.config["clip"], self.config["clip"]), v]
-                                 for g, v in grads_vars]
+                                 for g, v in grads_vars]  # list of (clipped_gradient, variable) pairs
             self.train_op = self.opt.apply_gradients(capped_grads_vars, self.global_step)
 
         # saver of the model
@@ -89,7 +89,7 @@ class Model(object):
         """
         :param char_inputs: one-hot encoding of sentence
         :param seg_inputs: segmentation feature
-        :param config: wither use segmentation feature
+        :param config: whether use segmentation feature
         :return: [1, num_steps, embedding size], 
         """
 
@@ -97,6 +97,7 @@ class Model(object):
         with tf.variable_scope("char_embedding" if not name else name), tf.device('/cpu:0'):
             self.char_lookup = tf.get_variable(
                     name="char_embedding",
+                    # num_chars: size of character dictionary, char_dim: embedding size for characters
                     shape=[self.num_chars, self.char_dim],
                     initializer=self.initializer)
             embedding.append(tf.nn.embedding_lookup(self.char_lookup, char_inputs))
@@ -104,6 +105,10 @@ class Model(object):
                 with tf.variable_scope("seg_embedding"), tf.device('/cpu:0'):
                     self.seg_lookup = tf.get_variable(
                         name="seg_embedding",
+                        # num_segs: 4 (1 for the beginning of jieba segment,
+                        #              2 for the middle of jieba segment,
+                        #              3 for the end of jieba segment)
+                        # seg_dim: embedding size for segmentation feature
                         shape=[self.num_segs, self.seg_dim],
                         initializer=self.initializer)
                     embedding.append(tf.nn.embedding_lookup(self.seg_lookup, seg_inputs))
@@ -112,7 +117,7 @@ class Model(object):
 
     def biLSTM_layer(self, lstm_inputs, lstm_dim, lengths, name=None):
         """
-        :param lstm_inputs: [batch_size, num_steps, emb_size] 
+        :param lstm_inputs: [batch_size, num_steps (sentences max length), emb_size] 
         :return: [batch_size, num_steps, 2*lstm_dim] 
         """
         with tf.variable_scope("char_BiLSTM" if not name else name):
@@ -163,19 +168,19 @@ class Model(object):
     def loss_layer(self, project_logits, lengths, name=None):
         """
         calculate crf loss
-        :param project_logits: [1, num_steps, num_tags]
+        :param project_logits: [batch_size, num_steps, num_tags]
         :return: scalar loss
         """
         with tf.variable_scope("crf_loss"  if not name else name):
             small = -1000.0
             # pad logits for crf loss
             start_logits = tf.concat(
-                [small * tf.ones(shape=[self.batch_size, 1, self.num_tags]), tf.zeros(shape=[self.batch_size, 1, 1])], axis=-1)
-            pad_logits = tf.cast(small * tf.ones([self.batch_size, self.num_steps, 1]), tf.float32)
-            logits = tf.concat([project_logits, pad_logits], axis=-1)
-            logits = tf.concat([start_logits, logits], axis=1)
+                [small * tf.ones(shape=[self.batch_size, 1, self.num_tags]), tf.zeros(shape=[self.batch_size, 1, 1])], axis=-1)  # [batch_size, 1, num_tags+1]
+            pad_logits = tf.cast(small * tf.ones([self.batch_size, self.num_steps, 1]), tf.float32)  # [batch_size, num_steps, 1]
+            logits = tf.concat([project_logits, pad_logits], axis=-1)  # [batch_size, num_steps, num_tags+1]
+            logits = tf.concat([start_logits, logits], axis=1)  # [batch_size, 1+num_steps, num_tags+1]
             targets = tf.concat(
-                [tf.cast(self.num_tags*tf.ones([self.batch_size, 1]), tf.int32), self.targets], axis=-1)
+                [tf.cast(self.num_tags*tf.ones([self.batch_size, 1]), tf.int32), self.targets], axis=-1)  # [batch_size, 1+num_steps]
 
             self.trans = tf.get_variable(
                 "transitions",
@@ -185,7 +190,7 @@ class Model(object):
                 inputs=logits,
                 tag_indices=targets,
                 transition_params=self.trans,
-                sequence_lengths=lengths+1)
+                sequence_lengths=lengths+1)  # length: a [batch_size] vector of true sequence lengths
             return tf.reduce_mean(-log_likelihood)
 
     def create_feed_dict(self, is_train, batch):

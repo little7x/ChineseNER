@@ -17,7 +17,7 @@ from data_utils import load_word2vec, create_input, input_from_line, BatchManage
 
 flags = tf.app.flags
 flags.DEFINE_boolean("clean",       False,      "clean train folder")
-flags.DEFINE_boolean("train",       False,      "Wither train the model")
+flags.DEFINE_boolean("train",       False,      "Whether train the model")
 # configurations for the model
 flags.DEFINE_integer("seg_dim",     20,         "Embedding size for segmentation, 0 if not used")
 flags.DEFINE_integer("char_dim",    100,        "Embedding size for characters")
@@ -30,9 +30,9 @@ flags.DEFINE_float("dropout",       0.5,        "Dropout rate")
 flags.DEFINE_float("batch_size",    20,         "batch size")
 flags.DEFINE_float("lr",            0.001,      "Initial learning rate")
 flags.DEFINE_string("optimizer",    "adam",     "Optimizer for training")
-flags.DEFINE_boolean("pre_emb",     True,       "Wither use pre-trained embedding")
-flags.DEFINE_boolean("zeros",       False,      "Wither replace digits with zero")
-flags.DEFINE_boolean("lower",       True,       "Wither lower case")
+flags.DEFINE_boolean("pre_emb",     True,       "Whether use pre-trained embedding")
+flags.DEFINE_boolean("zeros",       False,      "Whether replace digits with zero")
+flags.DEFINE_boolean("lower",       True,       "Whether lower case")
 
 flags.DEFINE_integer("max_epoch",   100,        "maximum training epochs")
 flags.DEFINE_integer("steps_check", 100,        "steps per checkpoint")
@@ -115,7 +115,7 @@ def train():
     if not os.path.isfile(FLAGS.map_file):
         # create dictionary for word
         if FLAGS.pre_emb:
-            dico_chars_train = char_mapping(train_sentences, FLAGS.lower)[0]
+            dico_chars_train = char_mapping(train_sentences, FLAGS.lower)[0]  # char to id
             dico_chars, char_to_id, id_to_char = augment_with_pretrained(
                 dico_chars_train.copy(),
                 FLAGS.emb_file,
@@ -145,7 +145,7 @@ def train():
         test_sentences, char_to_id, tag_to_id, FLAGS.lower
     )
     print("%i / %i / %i sentences in train / dev / test." % (
-        len(train_data), 0, len(test_data)))
+        len(train_data), len(dev_data), len(test_data)))
 
     train_manager = BatchManager(train_data, FLAGS.batch_size)
     dev_manager = BatchManager(dev_data, 100)
@@ -166,12 +166,12 @@ def train():
     # limit GPU memory
     tf_config = tf.ConfigProto()
     tf_config.gpu_options.allow_growth = True
-    steps_per_epoch = train_manager.len_data
+    steps_per_epoch = train_manager.len_data  # number of batches per epoch
     with tf.Session(config=tf_config) as sess:
         model = create_model(sess, Model, FLAGS.ckpt_path, load_word2vec, config, id_to_char, logger)
         logger.info("start training")
         loss = []
-        for i in range(100):
+        for i in range(100):  # number of epoch
             for batch in train_manager.iter_batch(shuffle=True):
                 step, batch_loss = model.run_step(sess, True, batch)
                 loss.append(batch_loss)

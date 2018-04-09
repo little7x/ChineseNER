@@ -126,8 +126,8 @@ def insert_singletons(words, singletons, p=0.5):
 def get_seg_features(string):
     """
     Segment text with jieba
-    features are represented in bies format
-    s donates single word
+    features are represented in bias format
+    s denotes single word
     """
     seg_feature = []
 

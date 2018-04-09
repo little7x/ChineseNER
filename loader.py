@@ -25,11 +25,11 @@ def load_sentences(path, lower, zeros):
                 sentence = []
         else:
             if line[0] == " ":
-                line = "$" + line[1:]
+                line = "$" + line[1:]  # 把空格本身替换为$
                 word = line.split()
                 # word[0] = " "
             else:
-                word= line.split()
+                word = line.split()  # 按连续的空格分割
             assert len(word) >= 2, print([word[0]])
             sentence.append(word)
     if len(sentence) > 0:
@@ -102,12 +102,12 @@ def prepare_dataset(sentences, char_to_id, tag_to_id, lower=False, train=True):
         return x.lower() if lower else x
     data = []
     for s in sentences:
-        string = [w[0] for w in s]
+        string = [w[0] for w in s]  # list of characters in the sentence
         chars = [char_to_id[f(w) if f(w) in char_to_id else '<UNK>']
-                 for w in string]
-        segs = get_seg_features("".join(string))
+                 for w in string]  # list of ids of characters in the sentence
+        segs = get_seg_features("".join(string))  # list of segment features of characters in the sentence
         if train:
-            tags = [tag_to_id[w[-1]] for w in s]
+            tags = [tag_to_id[w[-1]] for w in s]  # list of labels of characters in the sentence
         else:
             tags = [none_index for _ in chars]
         data.append([string, chars, segs, tags])
